@@ -14,8 +14,30 @@
 
 Dưới đây là cấu trúc thư mục của dự án để bạn dễ dàng hình dung:
 
-<pre lang="markdown"> ```text RAG-DEMO-CHAT/ ├── data/ │ └── human-nutrition-text.pdf # Tài liệu nguồn để chatbot tham khảo ├── frontend/ │ ├── assets/ │ │ ├── bot_avatar.png │ │ └── user_avatar.png │ └── index.html # Giao diện chính của ứng dụng cùng logic xử lý tương tác giao diện ├── models/ ├── notebooks/ ├── utils/ │ ├── embedding_utils.py │ ├── llm_utils.py │ ├── pdf_processor.py │ └── text_splitter.py ├── .env # Biến môi trường ├── .gitignore ├── app.py # Điểm khởi đầu của ứng dụng Flask ├── config.py ├── main.py ├── README.md # File mô tả dự án này └── requirements.txt # Danh sách các thư viện Python cần thiết ``` </pre>
-
+```text
+RAG-DEMO-CHAT/
+├── data/
+│   └── human-nutrition-text.pdf       # Tài liệu nguồn để chatbot tham khảo
+├── frontend/
+│   ├── assets/
+│   │   ├── bot_avatar.png
+│   │   └── user_avatar.png
+│   └── index.html                     # Giao diện chính của ứng dụng cùng logic xử lý tương tác giao diện
+├── models/
+├── notebooks/
+├── utils/
+│   ├── embedding_utils.py
+│   ├── llm_utils.py
+│   ├── pdf_processor.py
+│   └── text_splitter.py
+├── .env                               # Biến môi trường
+├── .gitignore
+├── app.py                             # Điểm khởi đầu của ứng dụng Flask
+├── config.py
+├── main.py
+├── README.md                          # File mô tả dự án này
+└── requirements.txt                   # Danh sách các thư viện Python cần thiết
+```
 ## Hướng dẫn cài đặt và sử dụng
 
 Để chạy ứng dụng, bạn cần thực hiện theo các bước sau.
