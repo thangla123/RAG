@@ -11,9 +11,6 @@ env/
 ENV/
 Venv-rag/
 
-# === Environment Config ===
-.env
-
 # === Jupyter / Colab ===
 .ipynb_checkpoints/
 *.ipynb
