@@ -30,7 +30,7 @@ RAG-DEMO-CHAT/
 │   ├── llm_utils.py
 │   ├── pdf_processor.py
 │   └── text_splitter.py
-├── .env                               # Biến môi trường
+├── .env                               # Đặt key token huggingface
 ├── .gitignore
 ├── app.py                             # Điểm khởi đầu của ứng dụng Flask
 ├── config.py
