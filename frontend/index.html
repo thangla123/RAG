@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chatbot RAG</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Marked.js CDN for Markdown parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- PDF.js CDN for rendering PDF files -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        .chat-bubble {
+            max-width: 80%;
+            border-radius: 1.5rem;
+            padding: 0.75rem 1.25rem;
+            margin-bottom: 0.75rem;
+            line-height: 1.4;
+            word-wrap: break-word;
+        }
+        .user-message {
+            background-color: #3b82f6;
+            color: #ffffff;
+            border-bottom-right-radius: 0.5rem;
+            margin-left: auto;
+        }
+        .bot-message {
+            background-color: #e5e7eb;
+            color: #1f2937;
+            border-bottom-left-radius: 0.5rem;
+            margin-right: auto;
+        }
+        .context-link {
+            font-size: 0.8rem;
+            color: #1d4ed8;
+            background-color: #e0f2fe;
+            padding: 0.5rem 0.75rem;
+            margin-top: 0.5rem;
+            border-radius: 9999px;
+            text-decoration: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            transition: background-color 0.2s;
+        }
+        .context-link:hover {
+            background-color: #bfdbfe;
+        }
+        .loading-dots span {
+            animation: bounce 1.2s infinite ease-in-out;
+        }
+        .loading-dots span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+        .loading-dots span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+        @keyframes bounce {
+            0%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-0.5rem); }
+        }
+        .sidebar {
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: 0;
+            height: 100%;
+            background-color: white;
+            box-shadow: -4px 0 12px rgba(0, 0, 0, 0.1);
+            transition: width 0.3s ease-in-out;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .sidebar.open {
+            width: 50vw;
+        }
+        .pdf-viewer-container {
+            flex-grow: 1;
+            overflow-y: auto;
+        }
+        .pdf-viewer-container canvas {
+            display: block;
+            margin: auto;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4">
+
+    <!-- Main Chat Container -->
+    <div id="chat-container" class="bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col w-full max-w-2xl h-[90vh]">
+        
+        <!-- Chat Header -->
+        <div class="bg-gray-800 text-white p-4 text-center text-xl font-bold">
+            Chatbot RAG
+        </div>
+
+        <!-- Chat Messages Area -->
+        <div id="chat-messages" class="flex-grow p-6 overflow-y-auto space-y-4">
+            <!-- Initial bot message with avatar -->
+            <div class="flex items-start w-full">
+                <img src="assets/bot_avatar.png" onerror="this.onerror=null; this.src='https://placehold.co/40x40/c2c2c2/fff?text=Bot'" alt="Bot Avatar" class="w-10 h-10 rounded-full mr-3">
+                <div class="bg-gray-200 text-gray-800 p-4 rounded-xl rounded-bl-none chat-bubble bot-message">
+                    Chào bạn! Tôi có thể giúp gì cho bạn hôm nay?
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat Input Area -->
+        <form id="chat-form" class="p-4 bg-gray-100 flex items-center gap-2">
+            <input 
+                type="text" 
+                id="user-input" 
+                placeholder="Nhập câu hỏi của bạn..." 
+                class="flex-grow p-3 rounded-full border-2 border-gray-300 focus:outline-none focus:border-blue-500 transition-colors duration-200"
+                autocomplete="off"
+            >
+            <button 
+                type="submit" 
+                class="bg-blue-600 text-white p-3 rounded-full shadow-lg hover:bg-blue-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center justify-center w-12 h-12"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-send">
+                    <path d="m22 2-7 19-3-6-6-3z"/>
+                    <path d="M22 2 11 13"/>
+                </svg>
+            </button>
+        </form>
+
+    </div>
+
+    <!-- Sidebar for PDF Viewer -->
+    <div id="pdf-sidebar" class="sidebar">
+        <div class="flex justify-between items-center p-4 border-b">
+            <h2 class="text-lg font-bold">Tài liệu tham chiếu</h2>
+            <button id="close-sidebar" class="text-gray-500 hover:text-gray-800">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-x">
+                    <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
+                </svg>
+            </button>
+        </div>
+        <div id="pdf-viewer" class="pdf-viewer-container p-4">
+            <!-- Canvas sẽ được chèn vào đây để hiển thị PDF -->
+        </div>
+    </div>
+
+
+    <!-- JavaScript for Chat Functionality -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const chatForm = document.getElementById('chat-form');
+            const userInput = document.getElementById('user-input');
+            const chatMessages = document.getElementById('chat-messages');
+            const pdfSidebar = document.getElementById('pdf-sidebar');
+            const pdfViewer = document.getElementById('pdf-viewer');
+            const closeSidebarBtn = document.getElementById('close-sidebar');
+
+            // Cập nhật URL để trỏ đến endpoint mới của backend
+            const pdfUrl = "http://localhost:5000/data/human-nutrition-text.pdf";
+            
+            // Set the full API URL for the backend endpoint
+            const apiUrl = 'http://localhost:5000/ask';
+
+            // Hàm tạo bong bóng chat
+            function createMessageElement(message, sender, context = []) {
+                const messageContainer = document.createElement('div');
+                const avatar = document.createElement('img');
+                const messageBubble = document.createElement('div');
+
+                messageContainer.className = 'flex items-end w-full space-x-2';
+                messageBubble.className = `chat-bubble shadow`;
+                avatar.className = 'w-10 h-10 rounded-full';
+                avatar.onerror = function() {
+                    if (sender === 'user') {
+                        this.src = 'https://placehold.co/40x40/3b82f6/fff?text=You';
+                    } else {
+                        this.src = 'https://placehold.co/40x40/c2c2c2/fff?text=Bot';
+                    }
+                };
+
+                if (sender === 'user') {
+                    messageContainer.classList.add('justify-end');
+                    avatar.src = 'assets/user_avatar.png'; 
+                    avatar.alt = 'User Avatar';
+                    messageBubble.classList.add('bg-blue-600', 'text-white', 'rounded-br-md', 'user-message');
+                    messageBubble.textContent = message;
+                    
+                    messageContainer.appendChild(messageBubble);
+                    messageContainer.appendChild(avatar);
+                } else {
+                    messageContainer.classList.add('justify-start');
+                    avatar.src = 'assets/bot_avatar.png';
+                    avatar.alt = 'Bot Avatar';
+                    messageBubble.classList.add('bg-gray-200', 'text-gray-800', 'rounded-bl-md', 'bot-message');
+                    messageBubble.innerHTML = marked.parse(message);
+                    
+                    messageContainer.appendChild(avatar);
+                    messageContainer.appendChild(messageBubble);
+                }
+
+                if (context.length > 0) {
+                    const contextContainer = document.createElement('div');
+                    contextContainer.className = 'w-full mt-2 flex flex-wrap gap-2';
+                    context.forEach(item => {
+                        const contextLink = document.createElement('a');
+                        contextLink.href = '#';
+                        contextLink.className = 'context-link';
+                        contextLink.textContent = `Trang ${item.page_number}`;
+                        
+                        contextLink.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            openPdfInSidebar(item.page_number);
+                        });
+
+                        contextContainer.appendChild(contextLink);
+                    });
+                    messageBubble.appendChild(contextContainer);
+                }
+
+                chatMessages.appendChild(messageContainer);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+
+            // Mở PDF trong sidebar
+            function openPdfInSidebar(pageNumber) {
+                pdfSidebar.classList.add('open');
+                pdfViewer.innerHTML = '<p class="text-center text-gray-500">Đang tải tài liệu...</p>';
+                
+                // Cập nhật đường dẫn worker cho PDF.js
+                pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+
+                const loadingTask = pdfjsLib.getDocument(pdfUrl);
+                loadingTask.promise.then(pdf => {
+                    pdfViewer.innerHTML = '';
+                    pdf.getPage(pageNumber).then(page => {
+                        const scale = 1.5;
+                        const viewport = page.getViewport({ scale: scale });
+
+                        const canvas = document.createElement('canvas');
+                        const context = canvas.getContext('2d');
+                        canvas.height = viewport.height;
+                        canvas.width = viewport.width;
+
+                        const renderContext = {
+                            canvasContext: context,
+                            viewport: viewport
+                        };
+
+                        pdfViewer.appendChild(canvas);
+                        page.render(renderContext);
+                        
+                        canvas.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    });
+                }, reason => {
+                    console.error(reason);
+                    pdfViewer.innerHTML = `<p class="text-center text-red-500">Lỗi khi tải tài liệu.</p>`;
+                });
+            }
+            
+            // Đóng sidebar
+            closeSidebarBtn.addEventListener('click', () => {
+                pdfSidebar.classList.remove('open');
+            });
+
+
+            // Hàm hiển thị trạng thái "đang gõ..."
+            function showTypingIndicator() {
+                const typingIndicator = document.createElement('div');
+                typingIndicator.id = 'typing-indicator';
+                typingIndicator.className = 'flex items-end w-full space-x-2 justify-start';
+
+                const avatar = document.createElement('img');
+                avatar.src = 'assets/bot_avatar.png';
+                avatar.onerror = function() { this.src='https://placehold.co/40x40/c2c2c2/fff?text=Bot'; };
+                avatar.alt = 'Bot Avatar';
+                avatar.className = 'w-10 h-10 rounded-full';
+
+                const messageBubble = document.createElement('div');
+                messageBubble.className = 'bot-message p-4 rounded-xl rounded-bl-none shadow';
+                messageBubble.innerHTML = `
+                    <div class="loading-dots flex space-x-1 items-center">
+                        <span class="w-2 h-2 bg-gray-500 rounded-full"></span>
+                        <span class="w-2 h-2 bg-gray-500 rounded-full"></span>
+                        <span class="w-2 h-2 bg-gray-500 rounded-full"></span>
+                    </div>
+                `;
+
+                typingIndicator.appendChild(avatar);
+                typingIndicator.appendChild(messageBubble);
+                chatMessages.appendChild(typingIndicator);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+
+            // Hàm ẩn trạng thái "đang gõ..."
+            function hideTypingIndicator() {
+                const typingIndicator = document.getElementById('typing-indicator');
+                if (typingIndicator) {
+                    typingIndicator.remove();
+                }
+            }
+
+            // Xử lý sự kiện gửi tin nhắn
+            chatForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const query = userInput.value.trim();
+                if (!query) return;
+
+                createMessageElement(query, 'user');
+                userInput.value = '';
+
+                showTypingIndicator();
+
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ query: query })
+                    });
+
+                    hideTypingIndicator();
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    createMessageElement(data.answer, 'bot', data.context_items);
+
+                } catch (error) {
+                    hideTypingIndicator();
+                    console.error('Error:', error);
+                    createMessageElement('Xin lỗi, đã xảy ra lỗi. Vui lòng thử lại sau.', 'bot');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
